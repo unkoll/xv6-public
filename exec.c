@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "elf.h"
 
+
 int
 exec(char *path, char **argv)
 {
@@ -28,6 +29,48 @@ exec(char *path, char **argv)
   }
   ilock(ip);
   pgdir = 0;
+
+  // Check shebang header
+  char buff[2];
+  if (readi(ip, buff, 0, 2) == 2 && 
+      (buff[0] == '!' && buff[1] == '#')){
+    char *interpreter_name = kalloc();
+    int sz = readi(ip, interpreter_name, 2, MAXSHEBANG);
+    int is_finished = 0;
+
+    for(i=0; i<sz; ++i) {
+      if(interpreter_name[i] == ' ' || interpreter_name[i] == '\n'){
+        interpreter_name[i] = '\0';
+        is_finished = 1;
+      }
+    }
+
+    if(!is_finished){
+      kfree(interpreter_name);
+      goto bad;
+    }
+
+    // Changing arguments
+    char *new_argv[MAXARG+1];
+    new_argv[0] = interpreter_name;
+    new_argv[1] = path;
+    int argv_size = 2;
+    for (char **ptr = argv; *ptr; ptr++) {
+      if (++argv_size > MAXARG) {
+        // It fixes infinite recursion shebang
+        kfree(interpreter_name);
+        goto bad;
+      }
+      new_argv[argv_size-1] = *ptr;
+    } 
+    new_argv[argv_size] = 0;
+ 
+    end_op();
+    int result = exec(interpreter_name, new_argv);
+    kfree(interpreter_name);
+    return result;
+  }
+
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
@@ -112,3 +155,4 @@ exec(char *path, char **argv)
   }
   return -1;
 }
+
