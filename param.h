@@ -11,5 +11,4 @@
 #define LOGSIZE      (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
-#define MAXDEPTH     MAXARG-1   // max depth of shebang recursion
 #define MAXSHEBANG   4096  // max length of interpreter path in shebang
