@@ -9,6 +9,9 @@
 #include "file.h"
 
 #define PIPESIZE 512
+#define PIPEATOM 8
+
+#define min(a,b) ((a) < (b) ? (a) : (b))
 
 struct pipe {
   struct spinlock lock;
@@ -78,11 +81,13 @@ pipeclose(struct pipe *p, int writable)
 int
 pipewrite(struct pipe *p, char *addr, int n)
 {
-  int i;
+  int i, j;
+  uint to_write;
 
   acquire(&p->lock);
-  for(i = 0; i < n; i++){
-    while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
+  for(i = 0; i < n; i += PIPEATOM){
+    to_write = min(PIPEATOM, n-i);
+    while(p->nwrite > p->nread + PIPESIZE - to_write){  //DOC: pipewrite-full
       if(p->readopen == 0 || myproc()->killed){
         release(&p->lock);
         return -1;
@@ -90,7 +95,9 @@ pipewrite(struct pipe *p, char *addr, int n)
       wakeup(&p->nread);
       sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
     }
-    p->data[p->nwrite++ % PIPESIZE] = addr[i];
+    for(j = i; j < to_write; ++j) {
+      p->data[p->nwrite++ % PIPESIZE] = addr[j]; // DOC: pipewrite-atomic
+    }
   }
   wakeup(&p->nread);  //DOC: pipewrite-wakeup1
   release(&p->lock);
