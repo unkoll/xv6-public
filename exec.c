@@ -7,10 +7,14 @@
 #include "x86.h"
 #include "elf.h"
 
-
-int
-exec(char *path, char **argv)
+static int
+exec_rec(char *path, char **argv, int depth)
 {
+  if (depth > MAXDEPTH){
+    cprintf("exec: fail\n");
+    return -1;
+  }
+
   char *s, *last;
   int i, off;
   uint argc, sz, sp, ustack[3+MAXARG+1];
@@ -34,7 +38,12 @@ exec(char *path, char **argv)
   char buff[2];
   if (readi(ip, buff, 0, 2) == 2 && 
       (buff[0] == '!' && buff[1] == '#')){
+
     char *interpreter_name = kalloc();
+    if (!interpreter_name) {
+      goto bad;
+    }
+
     int sz = readi(ip, interpreter_name, 2, MAXSHEBANG);
     int is_finished = 0;
 
@@ -51,26 +60,26 @@ exec(char *path, char **argv)
     }
 
     // Changing arguments
-    char *new_argv[MAXARG+1];
+    char *new_argv[MAXARG];
     new_argv[0] = interpreter_name;
     new_argv[1] = path;
     int argv_size = 2;
-    for (char **ptr = argv; *ptr; ptr++) {
-      if (++argv_size > MAXARG) {
-        // It fixes infinite recursion shebang
+    for (char **ptr = argv+1; *ptr; ptr++) {
+      if (++argv_size >= MAXARG) {
         kfree(interpreter_name);
         goto bad;
       }
       new_argv[argv_size-1] = *ptr;
     } 
     new_argv[argv_size] = 0;
- 
+
+    iunlockput(ip);
     end_op();
-    int result = exec(interpreter_name, new_argv);
+
+    int result = exec_rec(interpreter_name, new_argv, depth+1);
     kfree(interpreter_name);
     return result;
   }
-
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))
@@ -156,3 +165,8 @@ exec(char *path, char **argv)
   return -1;
 }
 
+int
+exec(char *path, char **argv) 
+{
+  return exec_rec(path, argv, 0);
+}

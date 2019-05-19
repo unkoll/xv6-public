@@ -12,3 +12,4 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXSHEBANG   4096  // max length of interpreter path in shebang
+#define MAXDEPTH     10    // max depth of recursion in shebang
