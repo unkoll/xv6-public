@@ -9,7 +9,6 @@
 #include "file.h"
 
 #define PIPESIZE 512
-#define PIPEATOM 8
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
@@ -85,8 +84,8 @@ pipewrite(struct pipe *p, char *addr, int n)
   uint to_write;
 
   acquire(&p->lock);
-  for(i = 0; i < n; i += PIPEATOM){
-    to_write = min(PIPEATOM, n-i);
+  for(i = 0; i < n; i += PIPESIZE){
+    to_write = min(PIPESIZE, n-i);
     while(p->nwrite > p->nread + PIPESIZE - to_write){  //DOC: pipewrite-full
       if(p->readopen == 0 || myproc()->killed){
         release(&p->lock);
